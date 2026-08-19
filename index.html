@@ -122,22 +122,33 @@
         <option value="38" selected>38 - Is&egrave;re</option>
         <option value="61">61 - Orne</option>
         <option value="66">66 - Pyr&eacute;n&eacute;es-Orientales</option>
+        <option value="75">75 - Paris</option>
         <option value="77">77 - Seine-et-Marne</option>
     </select>
 
-    <label for="baseUrl">Base de l'URL :</label>
-    <input type="text" id="baseUrl" value="http://archivesenligne.archives-isere.fr/mdr/index.php/docnumViewer/afficheUdDocNum/" oninput="genererPermalien()">
+    <!-- Groupe de champs pour les départements standards -->
+    <div id="standardGroup">
+        <label for="baseUrl">Base de l'URL :</label>
+        <input type="text" id="baseUrl" value="http://archivesenligne.archives-isere.fr/mdr/index.php/docnumViewer/afficheUdDocNum/" oninput="genererPermalien()">
 
-    <label for="coteInput">Cote du document :</label>
-    <input type="text" id="coteInput" placeholder="Ex: 9NUM/5E12/7" oninput="genererPermalien()">
+        <label for="coteInput">Cote du document :</label>
+        <input type="text" id="coteInput" placeholder="Ex: 9NUM/5E12/7" oninput="genererPermalien()">
 
-    <div id="fichierGroup" style="display: none;">
-        <label for="fichierInput">Nom de l'image / fichier :</label>
-        <input type="text" id="fichierInput" placeholder="Ex: AD09_4E_4348_0075.jpg" oninput="genererPermalien()">
+        <div id="fichierGroup" style="display: none;">
+            <label for="fichierInput">Nom de l'image / fichier :</label>
+            <input type="text" id="fichierInput" placeholder="Ex: AD09_4E_4348_0075.jpg" oninput="genererPermalien()">
+        </div>
     </div>
 
+    <!-- Groupe de champ spécifique à Paris -->
+    <div id="parisGroup" style="display: none;">
+        <label for="urlInput">URL longue issue de la recherche (Paris) :</label>
+        <input type="text" id="urlInput" placeholder="Collez l'URL compl&egrave;te ici..." oninput="genererPermalien()">
+    </div>
+
+    <!-- Numéro de page/vue (Commun) -->
     <div id="pageGroup">
-        <label for="pageInput">N&deg; de la vue / image d&eacute;sir&eacute;e :</label>
+        <label for="pageInput">N&deg; de la vue / page d&eacute;sir&eacute;e :</label>
         <input type="number" id="pageInput" placeholder="Ex: 75" min="1" oninput="genererPermalien()">
     </div>
 
@@ -193,6 +204,10 @@ const deptsConfig = {
         mode: "numDocument",
         placeholderCote: "Ex: 9NUM2E2901"
     },
+    "75": {
+        baseUrl: "https://archives.paris.fr/archives-numerisees/etat-civil-de-paris/etat-civil-a-partir-de-1860/consulter-les-actes-detat-civil",
+        mode: "paris"
+    },
     "77": {
         baseUrl: "https://archives-en-ligne.seine-et-marne.fr/mdr/index.php/docnumViewer/afficheUdDocNum/",
         mode: "fichier",
@@ -205,16 +220,29 @@ function changerDepartement() {
     const dept = document.getElementById('deptSelect').value;
     const config = deptsConfig[dept];
     
-    document.getElementById('baseUrl').value = config.baseUrl;
-    document.getElementById('coteInput').placeholder = config.placeholderCote;
-    
+    const standardGroup = document.getElementById('standardGroup');
+    const parisGroup = document.getElementById('parisGroup');
     const fichierGroup = document.getElementById('fichierGroup');
     const pageGroup = document.getElementById('pageGroup');
     const instructions = document.getElementById('instructions');
 
-    if (config.mode === "fichier") {
+    if (config.mode === "paris") {
+        standardGroup.style.display = "none";
+        parisGroup.style.display = "block";
+        fichierGroup.style.display = "none";
+        pageGroup.style.display = "block";
+        instructions.innerHTML = `
+            <li>S&eacute;lectionnez Paris (75).</li>
+            <li>Collez l'URL longue issue de votre recherche.</li>
+            <li>Indiquez le num&eacute;ro de vue / page d&eacute;sir&eacute;e.</li>
+        `;
+    } else if (config.mode === "fichier") {
+        standardGroup.style.display = "block";
+        parisGroup.style.display = "none";
         fichierGroup.style.display = "block";
         pageGroup.style.display = "none";
+        document.getElementById('baseUrl').value = config.baseUrl;
+        document.getElementById('coteInput').placeholder = config.placeholderCote;
         document.getElementById('fichierInput').placeholder = config.placeholderFichier;
         instructions.innerHTML = `
             <li>S&eacute;lectionnez le d&eacute;partement souhait&eacute;.</li>
@@ -222,8 +250,12 @@ function changerDepartement() {
             <li>Renseignez le nom complet de l'image (fichier).</li>
         `;
     } else {
+        standardGroup.style.display = "block";
+        parisGroup.style.display = "none";
         fichierGroup.style.display = "none";
         pageGroup.style.display = "block";
+        document.getElementById('baseUrl').value = config.baseUrl;
+        document.getElementById('coteInput').placeholder = config.placeholderCote;
         instructions.innerHTML = `
             <li>S&eacute;lectionnez le d&eacute;partement souhait&eacute;.</li>
             <li>Saisissez la cote du registre.</li>
@@ -237,8 +269,6 @@ function changerDepartement() {
 function genererPermalien() {
     const dept = document.getElementById('deptSelect').value;
     const config = deptsConfig[dept];
-    const baseUrl = document.getElementById('baseUrl').value.trim();
-    const coteRaw = document.getElementById('coteInput').value.trim();
     
     const errorMsg = document.getElementById('errorMsg');
     const resultContainer = document.getElementById('resultContainer');
@@ -249,27 +279,56 @@ function genererPermalien() {
     resultContainer.style.display = "none";
     copyBtn.innerText = "Copier le lien";
 
-    if (!coteRaw) {
-        return;
-    }
-
     let urlFinale = "";
 
-    if (config.mode === "fichier") {
-        let fichierRaw = document.getElementById('fichierInput').value.trim();
-        fichierRaw = fichierRaw.replace(/^Image:\s*/i, '').trim(); // Nettoyage au cas où
+    if (config.mode === "paris") {
+        const urlInput = document.getElementById('urlInput').value.trim();
+        const pageCible = parseInt(document.getElementById('pageInput').value, 10);
 
-        if (!fichierRaw) {
+        if (!urlInput) return;
+
+        if (isNaN(pageCible) || pageCible < 1) {
+            errorMsg.innerText = "Veuillez entrer un num\u00e9ro de page valide.";
             return;
         }
-        urlFinale = `${baseUrl}?cote=${encodeURIComponent(coteRaw)}&fichier=${encodeURIComponent(fichierRaw)}`;
+
+        const regex = /(\/_recherche-api\/visionneuse-infos\/[^\/]+\/[^\/]+\/[^\/]+\/image\/\d+)/;
+        const match = urlInput.match(regex);
+
+        if (!match) {
+            errorMsg.innerText = "URL invalide ou fragment de visionneuse introuvable.";
+            return;
+        }
+
+        const baseVisionneuse = match[1];
+        const indexPage = pageCible - 1;
+
+        if (indexPage === 0) {
+            urlFinale = `${config.baseUrl}#${baseVisionneuse}`;
+        } else {
+            urlFinale = `${config.baseUrl}#${baseVisionneuse}/${indexPage}`;
+        }
+
     } else {
-        let pageNum = parseInt(document.getElementById('pageInput').value, 10);
-        if (isNaN(pageNum) || pageNum < 1) {
-            errorMsg.innerText = "Veuillez entrer un num\u00e9ro de vue valide.";
-            return;
+        const baseUrl = document.getElementById('baseUrl').value.trim();
+        const coteRaw = document.getElementById('coteInput').value.trim();
+
+        if (!coteRaw) return;
+
+        if (config.mode === "fichier") {
+            let fichierRaw = document.getElementById('fichierInput').value.trim();
+            fichierRaw = fichierRaw.replace(/^Image:\s*/i, '').trim();
+
+            if (!fichierRaw) return;
+            urlFinale = `${baseUrl}?cote=${encodeURIComponent(coteRaw)}&fichier=${encodeURIComponent(fichierRaw)}`;
+        } else {
+            let pageNum = parseInt(document.getElementById('pageInput').value, 10);
+            if (isNaN(pageNum) || pageNum < 1) {
+                errorMsg.innerText = "Veuillez entrer un num\u00e9ro de vue valide.";
+                return;
+            }
+            urlFinale = `${baseUrl}?cote=${encodeURIComponent(coteRaw)}&numDocument=${pageNum}`;
         }
-        urlFinale = `${baseUrl}?cote=${encodeURIComponent(coteRaw)}&numDocument=${pageNum}`;
     }
 
     resultUrl.innerText = urlFinale;
@@ -291,14 +350,21 @@ function copierUrl() {
 function reinitialiser() {
     document.getElementById('coteInput').value = "";
     document.getElementById('fichierInput').value = "";
+    document.getElementById('urlInput').value = "";
     document.getElementById('pageInput').value = "";
     document.getElementById('errorMsg').innerText = "";
     document.getElementById('resultContainer').style.display = "none";
-    document.getElementById('coteInput').focus();
 }
 
-// Initialisation au chargement
+// Initialisation au chargement avec prise en compte du paramètre ?dept=XX dans l'URL
 window.onload = function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const deptParam = urlParams.get('dept');
+
+    if (deptParam && deptsConfig[deptParam]) {
+        document.getElementById('deptSelect').value = deptParam;
+    }
+
     changerDepartement();
 };
 </script>
