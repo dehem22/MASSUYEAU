@@ -231,10 +231,16 @@ function changerDepartement() {
         parisGroup.style.display = "block";
         fichierGroup.style.display = "none";
         pageGroup.style.display = "block";
+        
+        // Assure une valeur par défaut de 1 pour éviter les erreurs de saisie
+        if (!document.getElementById('pageInput').value) {
+            document.getElementById('pageInput').value = 1;
+        }
+
         instructions.innerHTML = `
             <li>S&eacute;lectionnez Paris (75).</li>
             <li>Collez l'URL longue issue de votre recherche.</li>
-            <li>Indiquez le num&eacute;ro de vue / page d&eacute;sir&eacute;e.</li>
+            <li>Indiquez le num&eacute;ro de vue / page d&eacute;sir&eacute;e (par d&eacute;faut : 1).</li>
         `;
     } else if (config.mode === "fichier") {
         standardGroup.style.display = "block";
@@ -283,14 +289,15 @@ function genererPermalien() {
 
     if (config.mode === "paris") {
         const urlInput = document.getElementById('urlInput').value.trim();
-        const pageCible = parseInt(document.getElementById('pageInput').value, 10);
+        
+        // Utilise la valeur du champ ou 1 par défaut si vide ou invalide
+        let pageCible = parseInt(document.getElementById('pageInput').value, 10);
+        if (isNaN(pageCible) || pageCible < 1) {
+            pageCible = 1;
+            document.getElementById('pageInput').value = 1;
+        }
 
         if (!urlInput) return;
-
-        if (isNaN(pageCible) || pageCible < 1) {
-            errorMsg.innerText = "Veuillez entrer un num\u00e9ro de page valide.";
-            return;
-        }
 
         const regex = /(\/_recherche-api\/visionneuse-infos\/[^\/]+\/[^\/]+\/[^\/]+\/image\/\d+)/;
         const match = urlInput.match(regex);
